@@ -18,6 +18,7 @@ import { Deferred } from '@/components/Deferred';
 import { EmptyMessages } from '@/components/EmptyMessages';
 import { SessionActionsAnchor, SessionActionsPopover } from '@/components/SessionActionsPopover';
 import { VoiceAssistantStatusBar } from '@/components/VoiceAssistantStatusBar';
+import { useImagePaste } from '@/attachments/useImagePaste';
 import { useDraft } from '@/hooks/useDraft';
 import { Modal } from '@/modal';
 import { voiceHooks } from '@/realtime/hooks/voiceHooks';
@@ -259,6 +260,9 @@ function SessionViewLoaded({ sessionId, session }: { sessionId: string, session:
     // Use draft hook for auto-saving message drafts
     const { clearDraft } = useDraft(sessionId, message, setMessage);
 
+    // Image paste support
+    const { images, handlePaste, removeImage, clearImages } = useImagePaste();
+
     // Handle dismissing CLI version warning
     const handleDismissCliWarning = React.useCallback(() => {
         if (machineId && cliVersion) {
@@ -378,11 +382,16 @@ function SessionViewLoaded({ sessionId, session }: { sessionId: string, session:
                 isPulsing: sessionStatus.isPulsing
             }}
             blockSend={isDisconnected}
+            images={images}
+            onRemoveImage={removeImage}
+            onPaste={handlePaste}
             onSend={() => {
-                if (message.trim()) {
+                if (message.trim() || images.length > 0) {
+                    const currentImages = images.length > 0 ? [...images] : undefined;
                     setMessage('');
                     clearDraft();
-                    sync.sendMessage(sessionId, message);
+                    clearImages();
+                    sync.sendMessage(sessionId, message, undefined, currentImages);
                     trackMessageSent();
                 }
             }}

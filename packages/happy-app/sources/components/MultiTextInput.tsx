@@ -43,6 +43,7 @@ interface MultiTextInputProps {
     onKeyPress?: OnKeyPressCallback;
     onSelectionChange?: (selection: { start: number; end: number }) => void;
     onStateChange?: (state: TextInputState) => void;
+    onPaste?: (e: any) => void;
 }
 
 export const MultiTextInput = React.forwardRef<MultiTextInputHandle, MultiTextInputProps>((props, ref) => {

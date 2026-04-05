@@ -43,6 +43,7 @@ interface MultiTextInputProps {
     onKeyPress?: OnKeyPressCallback;
     onSelectionChange?: (selection: { start: number; end: number }) => void;
     onStateChange?: (state: TextInputState) => void;
+    onPaste?: (e: ClipboardEvent) => void;
 }
 
 export const MultiTextInput = React.forwardRef<MultiTextInputHandle, MultiTextInputProps>((props, ref) => {
@@ -173,6 +174,15 @@ export const MultiTextInput = React.forwardRef<MultiTextInputHandle, MultiTextIn
             textareaRef.current?.blur();
         }
     }), [onChangeText, onStateChange, onSelectionChange]);
+
+    // Forward paste events to parent for image handling
+    React.useEffect(() => {
+        const el = textareaRef.current;
+        if (!el || !props.onPaste) return;
+        const handler = props.onPaste;
+        el.addEventListener('paste', handler);
+        return () => el.removeEventListener('paste', handler);
+    }, [props.onPaste]);
 
     return (
         <View style={{ width: '100%' }}>

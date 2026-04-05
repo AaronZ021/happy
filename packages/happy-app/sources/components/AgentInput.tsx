@@ -22,6 +22,7 @@ import { useSetting } from '@/sync/storage';
 import { hackMode, hackModes } from '@/sync/modeHacks';
 import { Theme } from '@/theme';
 import { t } from '@/text';
+import { ImageAttachmentPreview } from '@/attachments/ImageAttachmentPreview';
 import { Metadata } from '@/sync/storageTypes';
 
 interface AgentInputProps {
@@ -77,6 +78,9 @@ interface AgentInputProps {
     isSendDisabled?: boolean;
     isSending?: boolean;
     minHeight?: number;
+    images?: string[];
+    onRemoveImage?: (index: number) => void;
+    onPaste?: (e: ClipboardEvent) => void;
 }
 
 const MAX_CONTEXT_SIZE = 190000;
@@ -308,9 +312,10 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
     const isSendBlocked = props.blockSend ?? false;
 
     const hasText = props.value.trim().length > 0;
+    const hasImages = (props.images?.length ?? 0) > 0;
     const canPressSendButton = !props.isSending
         && !props.isSendDisabled
-        && (isSendBlocked ? hasText : (hasText || !!props.onMicPress));
+        && (isSendBlocked ? (hasText || hasImages) : ((hasText || hasImages) || !!props.onMicPress));
 
     // Check if this is a Codex, Gemini, or OpenClaw session
     // Use metadata.flavor for existing sessions, agentType prop for new sessions
@@ -479,12 +484,12 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
         if (props.isSendDisabled || props.isSending) return;
 
         hapticsLight();
-        if (hasText) {
+        if (hasText || hasImages) {
             props.onSend();
         } else {
             props.onMicPress?.();
         }
-    }, [handleBlockedSendAttempt, hasText, isSendBlocked, props]);
+    }, [handleBlockedSendAttempt, hasText, hasImages, isSendBlocked, props]);
 
     // Handle keyboard navigation
     const handleKeyPress = React.useCallback((event: KeyPressEvent): boolean => {
@@ -1050,6 +1055,15 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                 {/* Box 2: Action Area (Input + Send) */}
                 <Shaker ref={sendBlockShakerRef}>
                 <View style={styles.unifiedPanel}>
+                    {/* Image attachment preview */}
+                    {props.images && props.images.length > 0 && (
+                        <View style={{ paddingTop: 8, paddingHorizontal: 4 }}>
+                            <ImageAttachmentPreview
+                                images={props.images}
+                                onRemove={(index) => props.onRemoveImage?.(index)}
+                            />
+                        </View>
+                    )}
                     {/* Input field */}
                     <View style={[styles.inputContainer, props.minHeight ? { minHeight: props.minHeight } : undefined]}>
                         <MultiTextInput
@@ -1062,6 +1076,7 @@ export const AgentInput = React.memo(React.forwardRef<MultiTextInputHandle, Agen
                             onKeyPress={handleKeyPress}
                             onStateChange={handleInputStateChange}
                             maxHeight={120}
+                            onPaste={props.onPaste}
                         />
                     </View>
 
