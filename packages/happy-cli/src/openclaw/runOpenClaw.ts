@@ -29,6 +29,7 @@ import { connectionState } from '@/utils/serverConnectionErrors';
 import { OpenClawBackend } from './OpenClawBackend';
 import type { OpenClawGatewayConfig } from './openclawTypes';
 import type { AgentMessage } from '@/agent/core';
+import { extractUserContent } from '@/api/types';
 
 const TURN_TIMEOUT_MS = 5 * 60 * 1000;
 
@@ -262,8 +263,12 @@ export async function runOpenClaw(opts: RunOpenClawOptions): Promise<void> {
   backend.onMessage(onBackendMessage);
 
   session.onUserMessage((message) => {
-    if (!message.content.text) return;
-    messageQueue.push(message.content.text, {});
+    const { text, images } = extractUserContent(message);
+    if (!text) return;
+    if (images.length > 0) {
+      logger.debug(`[openclaw] User message includes ${images.length} image(s) - OpenClaw does not support images, text only`);
+    }
+    messageQueue.push(text, {});
   });
   session.keepAlive(thinking, 'remote');
 

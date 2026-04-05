@@ -220,15 +220,37 @@ export type CreateSessionResponse = z.infer<typeof CreateSessionResponseSchema>
 
 export const UserMessageSchema = z.object({
   role: z.literal('user'),
-  content: z.object({
-    type: z.literal('text'),
-    text: z.string()
-  }),
+  content: z.union([
+    z.object({
+      type: z.literal('text'),
+      text: z.string()
+    }),
+    z.object({
+      type: z.literal('content_blocks'),
+      blocks: z.array(z.discriminatedUnion('type', [
+        z.object({ type: z.literal('text'), text: z.string() }),
+        z.object({ type: z.literal('image'), dataUrl: z.string() }),
+      ])),
+    }),
+  ]),
   localKey: z.string().optional(), // Mobile messages include this
   meta: MessageMetaSchema.optional()
 })
 
 export type UserMessage = z.infer<typeof UserMessageSchema>
+
+/** Extract text and images from a UserMessage, handling both legacy and new formats */
+export function extractUserContent(message: UserMessage): { text: string; images: string[] } {
+  if (message.content.type === 'text') {
+    return { text: message.content.text, images: [] };
+  }
+  const textBlock = message.content.blocks.find(b => b.type === 'text');
+  const imageBlocks = message.content.blocks.filter((b): b is { type: 'image'; dataUrl: string } => b.type === 'image');
+  return {
+    text: textBlock?.text ?? '',
+    images: imageBlocks.map(b => b.dataUrl),
+  };
+}
 
 export const AgentMessageSchema = z.object({
   role: z.literal('agent'),

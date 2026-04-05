@@ -1037,7 +1037,7 @@ export class AcpBackend implements AgentBackend {
   private idleResolver: (() => void) | null = null;
   private waitingForResponse = false;
 
-  async sendPrompt(sessionId: SessionId, prompt: string): Promise<void> {
+  async sendPrompt(sessionId: SessionId, prompt: string, images?: string[]): Promise<void> {
     // Check if prompt contains change_title instruction (via optional callback)
     const promptHasChangeTitle = this.options.hasChangeTitleInstruction?.(prompt) ?? false;
 
@@ -1063,14 +1063,26 @@ export class AcpBackend implements AgentBackend {
       logger.debug(`[AcpBackend] Sending prompt (length: ${prompt.length}): ${prompt.substring(0, 100)}...`);
       logger.debug(`[AcpBackend] Full prompt: ${prompt}`);
       
-      const contentBlock: ContentBlock = {
-        type: 'text',
-        text: prompt,
-      };
+      const contentBlocks: ContentBlock[] = [
+        { type: 'text', text: prompt },
+      ];
+
+      if (images && images.length > 0) {
+        for (const dataUrl of images) {
+          const match = dataUrl.match(/^data:(image\/[^;]+);base64,(.+)$/);
+          if (match) {
+            contentBlocks.push({
+              type: 'image',
+              data: match[2],
+              mimeType: match[1],
+            });
+          }
+        }
+      }
 
       const promptRequest: PromptRequest = {
         sessionId: this.acpSessionId,
-        prompt: [contentBlock],
+        prompt: contentBlocks,
       };
 
       logger.debug(`[AcpBackend] Prompt request:`, JSON.stringify(promptRequest, null, 2));

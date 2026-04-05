@@ -39,6 +39,7 @@ import { GeminiReasoningProcessor } from '@/gemini/utils/reasoningProcessor';
 import { GeminiDiffProcessor } from '@/gemini/utils/diffProcessor';
 import type { GeminiMode, CodexMessagePayload } from '@/gemini/types';
 import type { PermissionMode } from '@/api/types';
+import { extractUserContent } from '@/api/types';
 import { GEMINI_MODEL_ENV, DEFAULT_GEMINI_MODEL, CHANGE_TITLE_INSTRUCTION } from '@/gemini/constants';
 import {
   readGeminiLocalConfig,
@@ -262,7 +263,10 @@ export async function runGemini(opts: {
 
     // Build the full prompt with appendSystemPrompt if provided
     // Only include system prompt for the first message to avoid forcing tool usage on every message
-    const originalUserMessage = message.content.text;
+    const { text: originalUserMessage, images } = extractUserContent(message);
+    if (images.length > 0) {
+      logger.debug(`[Gemini] User message includes ${images.length} image(s) - will forward via ACP backend`);
+    }
     let fullPrompt = originalUserMessage;
     if (isFirstMessage && message.meta?.appendSystemPrompt) {
       // Prepend system prompt to user message only for first message
@@ -279,12 +283,16 @@ export async function runGemini(opts: {
       model: messageModel,
       originalUserMessage, // Store original message separately
     };
+    if (images.length > 0) {
+      pendingImages = images;
+    }
     messageQueue.push(fullPrompt, mode);
     
     // Record user message in conversation history for context preservation
     conversationHistory.addUserMessage(originalUserMessage);
   });
 
+  let pendingImages: string[] = [];
   let thinking = false;
   session.keepAlive(thinking, 'remote');
   const keepAliveInterval = setInterval(() => {
@@ -1085,7 +1093,9 @@ export async function runGemini(opts: {
         
         for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
           try {
-            await geminiBackend.sendPrompt(acpSessionId, promptToSend);
+            const imagesToSend = pendingImages.length > 0 ? pendingImages : undefined;
+            pendingImages = [];
+            await geminiBackend.sendPrompt(acpSessionId, promptToSend, imagesToSend);
             logger.debug('[gemini] Prompt sent successfully');
             
             // Wait for Gemini to finish responding (all chunks received + final idle)

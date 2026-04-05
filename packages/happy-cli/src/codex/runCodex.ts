@@ -27,6 +27,7 @@ import { registerKillSessionHandler } from "@/claude/registerKillSessionHandler"
 import { stopCaffeinate } from "@/utils/caffeinate";
 import { connectionState } from '@/utils/serverConnectionErrors';
 import { setupOfflineReconnection } from '@/utils/setupOfflineReconnection';
+import { extractUserContent } from '@/api/types';
 import type { ApiSessionClient } from '@/api/apiSession';
 import { resolveCodexExecutionPolicy } from './executionPolicy';
 import { mapCodexMcpMessageToSessionEnvelopes, mapCodexProcessorMessageToSessionEnvelopes } from './utils/sessionProtocolMapper';
@@ -184,6 +185,11 @@ export async function runCodex(opts: {
     let currentModel: string | undefined = undefined;
 
     session.onUserMessage((message) => {
+        const { text, images } = extractUserContent(message);
+        if (images.length > 0) {
+          logger.debug(`[Codex] User message includes ${images.length} image(s) - Codex does not support images, text only`);
+        }
+
         // Resolve permission mode (accept all modes, will be mapped in switch statement)
         let messagePermissionMode = currentPermissionMode;
         if (message.meta?.permissionMode) {
@@ -208,7 +214,7 @@ export async function runCodex(opts: {
             permissionMode: messagePermissionMode || 'default',
             model: messageModel,
         };
-        messageQueue.push(message.content.text, enhancedMode);
+        messageQueue.push(text, enhancedMode);
     });
     let thinking = false;
     let currentTurnId: string | null = null;

@@ -18,6 +18,7 @@ import { notifyDaemonSessionStarted } from '@/daemon/controlClient';
 import { registerKillSessionHandler } from '@/claude/registerKillSessionHandler';
 import { startHappyServer } from '@/claude/utils/startHappyServer';
 import { projectPath } from '@/projectPath';
+import { extractUserContent } from '@/api/types';
 import { BasePermissionHandler, type PermissionResult } from '@/utils/BasePermissionHandler';
 import { connectionState } from '@/utils/serverConnectionErrors';
 import {
@@ -819,9 +820,16 @@ export async function runAcp(opts: {
 
   backend.onMessage(onBackendMessage);
 
+  let pendingImages: string[] = [];
   session.onUserMessage((message) => {
-    if (!message.content.text) {
+    const { text, images } = extractUserContent(message);
+    if (!text) {
       return;
+    }
+
+    if (images.length > 0) {
+      pendingImages = images;
+      logger.debug(`[${opts.agentName}] User message includes ${images.length} image(s) - will forward via ACP backend`);
     }
 
     if (typeof message.meta?.permissionMode === 'string') {
@@ -834,7 +842,7 @@ export async function runAcp(opts: {
       logger.debug(`[${opts.agentName}] Requested ACP model: ${currentModel ?? 'null'}`);
     }
 
-    messageQueue.push(message.content.text, {
+    messageQueue.push(text, {
       permissionMode: currentPermissionMode,
       model: currentModel,
     });
@@ -909,7 +917,9 @@ export async function runAcp(opts: {
         if (typeof batch.mode.model === 'string' && batch.mode.model.length > 0) {
           await switchModelIfRequested(batch.mode.model);
         }
-        await backend.sendPrompt(acpSessionId, batch.message);
+        const imagesToSend = pendingImages.length > 0 ? pendingImages : undefined;
+        pendingImages = [];
+        await backend.sendPrompt(acpSessionId, batch.message, imagesToSend);
         await turnEnded;
         sendEnvelopes(sessionManager.endTurn('completed'));
         session.sendSessionEvent({ type: 'ready' });
