@@ -29,6 +29,7 @@ export type UserTextMessage = {
     createdAt: number;
     text: string;
     displayText?: string; // Optional text to display in UI instead of actual text
+    images?: string[];  // base64 data URLs of attached images
     meta?: MessageMeta;
 }
 

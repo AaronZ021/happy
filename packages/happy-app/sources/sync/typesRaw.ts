@@ -431,10 +431,19 @@ const rawRecordSchema = z.preprocess(
         }),
         z.object({
             role: z.literal('user'),
-            content: z.object({
-                type: z.literal('text'),
-                text: z.string()
-            }),
+            content: z.union([
+                z.object({
+                    type: z.literal('text'),
+                    text: z.string()
+                }),
+                z.object({
+                    type: z.literal('content_blocks'),
+                    blocks: z.array(z.discriminatedUnion('type', [
+                        z.object({ type: z.literal('text'), text: z.string() }),
+                        z.object({ type: z.literal('image'), dataUrl: z.string() }),
+                    ])),
+                }),
+            ]),
             meta: MessageMetaSchema.optional()
         }),
         z.object({
@@ -506,6 +515,7 @@ export type NormalizedMessage = ({
         type: 'text';
         text: string;
     }
+    images?: string[]  // base64 data URLs from content_blocks
 } | {
     role: 'agent'
     content: NormalizedAgentContent[]
@@ -710,12 +720,25 @@ export function normalizeRawMessage(id: string, localId: string | null, createdA
     }
     raw = parsed.data;
     if (raw.role === 'user') {
+        let textContent: { type: 'text'; text: string };
+        let images: string[] | undefined;
+
+        if (raw.content.type === 'content_blocks') {
+            const textBlock = raw.content.blocks.find((b): b is { type: 'text'; text: string } => b.type === 'text');
+            const imageBlocks = raw.content.blocks.filter((b): b is { type: 'image'; dataUrl: string } => b.type === 'image');
+            textContent = { type: 'text', text: textBlock?.text ?? '' };
+            images = imageBlocks.length > 0 ? imageBlocks.map((b: any) => b.dataUrl) : undefined;
+        } else {
+            textContent = raw.content;
+        }
+
         return {
             id,
             localId,
             createdAt,
             role: 'user',
-            content: raw.content,
+            content: textContent,
+            images,
             isSidechain: false,
             meta: raw.meta,
         };

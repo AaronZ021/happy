@@ -438,7 +438,7 @@ class Sync {
         this.backgroundSendStartedAt = null;
     }
 
-    async sendMessage(sessionId: string, text: string, displayText?: string) {
+    async sendMessage(sessionId: string, text: string, displayText?: string, images?: string[]) {
 
         // Get encryption
         const encryption = this.encryption.getSessionEncryption(sessionId);
@@ -481,10 +481,18 @@ class Sync {
         // Create user message content with metadata
         const content: RawRecord = {
             role: 'user',
-            content: {
-                type: 'text',
-                text
-            },
+            content: (images && images.length > 0)
+                ? {
+                    type: 'content_blocks' as const,
+                    blocks: [
+                        { type: 'text' as const, text },
+                        ...images.map(dataUrl => ({ type: 'image' as const, dataUrl })),
+                    ],
+                }
+                : {
+                    type: 'text' as const,
+                    text
+                },
             meta: {
                 sentFrom,
                 permissionMode,
