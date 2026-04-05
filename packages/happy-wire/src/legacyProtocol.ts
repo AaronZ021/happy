@@ -1,12 +1,24 @@
 import * as z from 'zod';
 import { MessageMetaSchema } from './messageMeta';
+import { ImageContentBlockSchema } from './attachments';
 
 export const UserMessageSchema = z.object({
   role: z.literal('user'),
-  content: z.object({
-    type: z.literal('text'),
-    text: z.string(),
-  }),
+  content: z.union([
+    // Legacy: text-only (backwards compatible)
+    z.object({
+      type: z.literal('text'),
+      text: z.string(),
+    }),
+    // New: array of content blocks (text + images)
+    z.object({
+      type: z.literal('content_blocks'),
+      blocks: z.array(z.discriminatedUnion('type', [
+        z.object({ type: z.literal('text'), text: z.string() }),
+        ImageContentBlockSchema,
+      ])),
+    }),
+  ]),
   localKey: z.string().optional(),
   meta: MessageMetaSchema.optional(),
 });
