@@ -1,5 +1,6 @@
 import * as React from "react";
 import { View, Text } from "react-native";
+import { Image } from 'expo-image';
 import { StyleSheet } from 'react-native-unistyles';
 import { MarkdownView } from "./markdown/MarkdownView";
 import { t } from '@/text';
@@ -77,6 +78,19 @@ function UserTextBlock(props: {
     <View style={styles.userMessageContainer}>
       <View style={styles.userMessageBubble}>
         <MarkdownView markdown={props.message.displayText || props.message.text} onOptionPress={handleOptionPress} sessionId={props.sessionId} />
+        {props.message.images && props.message.images.length > 0 && (
+          <View style={userImageStyles.container}>
+            {props.message.images.map((dataUrl, i) => (
+              <View key={i} style={userImageStyles.imageWrapper}>
+                <Image
+                  source={{ uri: dataUrl }}
+                  style={{ width: 200, height: 150 }}
+                  contentFit="contain"
+                />
+              </View>
+            ))}
+          </View>
+        )}
         {/* {__DEV__ && (
           <Text style={styles.debugText}>{JSON.stringify(props.message.meta)}</Text>
         )} */}
@@ -217,5 +231,19 @@ const styles = StyleSheet.create((theme) => ({
   debugText: {
     color: theme.colors.agentEventText,
     fontSize: 12,
+  },
+}));
+
+const userImageStyles = StyleSheet.create((theme) => ({
+  container: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 8,
+  },
+  imageWrapper: {
+    borderRadius: 8,
+    overflow: 'hidden',
+    backgroundColor: theme.colors.surface,
   },
 }));
